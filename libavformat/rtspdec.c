@@ -641,6 +641,7 @@ static int rtsp_listen(AVFormatContext *s)
     int rbuflen = 0;
     int ret;
     enum RTSPMethod methodcode;
+    char *path_options = NULL;
 
     /* extract hostname and port */
     av_url_split(proto, sizeof(proto), auth, sizeof(auth), host, sizeof(host),
@@ -653,14 +654,23 @@ static int rtsp_listen(AVFormatContext *s)
     if (!strcmp(proto, "rtsps")) {
         lower_proto  = "tls";
         default_port = RTSPS_DEFAULT_PORT;
+        path_options = strchr(path, '?');
+        if(path_options)
+            ++path_options;
     }
 
     if (port < 0)
         port = default_port;
 
-    /* Create TCP connection */
-    ff_url_join(tcpname, sizeof(tcpname), lower_proto, NULL, host, port,
-                "?listen&listen_timeout=%d", rt->initial_timeout * 1000);
+    if(path_options && *path_options) {
+        /* Create TCP connection with path */
+        ff_url_join(tcpname, sizeof(tcpname), lower_proto, NULL, host, port,
+                    "?listen&listen_timeout=%d&%s", rt->initial_timeout * 1000, path_options);
+    } else {
+        /* Create TCP connection */
+        ff_url_join(tcpname, sizeof(tcpname), lower_proto, NULL, host, port,
+                    "?listen&listen_timeout=%d", rt->initial_timeout * 1000);
+    }
 
     if (ret = ffurl_open_whitelist(&rt->rtsp_hd, tcpname, AVIO_FLAG_READ_WRITE,
                                    &s->interrupt_callback, NULL,
